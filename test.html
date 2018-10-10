@@ -1,0 +1,459 @@
+
+<!DOCTYPE html>
+
+
+<html>
+<head>
+  <title>Enoch Pratt Free Library</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- This site uses the W3 CSS framework -->
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+</head>
+
+<body class="w3-padding-small">
+
+<div class="w3-container w3-padding-small w3-border w3-border-black w3-round-large w3-black">
+
+  <header class="w3-container w3-padding-small">
+    <div class="w3-container w3-center w3-xxxlarge">Enoch Pratt Free Library
+    </div>
+    <div class="w3-container w3-center w3-xlarge" id="todaysDate"></div>
+  </header>
+
+<!-- Div for announcements -->
+  <div class="w3-container" style="padding: 0px;" id="announce"></div>
+
+<!-- This div is just to give some separation -->
+  <div class="w3-container w3-tiny">&nbsp;</div>
+
+<!-- Items displayed are read from catalog record 72648 505 field -->
+<!-- Search for title: 'circulation signage' as Keyword, or general: '72648{ckey}' as Keyword --> 
+
+  <div class="w3-cell-row" id="cols">
+<!-- These columns and their inner divs will be created below
+    <div class="w3-col w3-quarter w3-cell" id="col_0"></div>
+    <div class="w3-col w3-quarter w3-cell" id="col_1"></div>
+    <div class="w3-col w3-quarter w3-cell" id="col_2"></div>
+    <div class="w3-col w3-quarter w3-cell" id="col_3"></div>
+-->
+  </div>
+
+</div>
+
+</body>
+</html>
+
+
+<html>
+<head>
+  <title>Enoch Pratt free Library</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- This site uses the W3 CSS framework -->
+  <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+<script type="text/javascript">
+
+// Setup constant variables (uppercase)
+// Number of columns and class for columns
+  const NUMCOLS = 4;
+  const COLUMNCLASS = "w3-col w3-quarter w3-cell";
+// Symphony Web services link
+ // const WSURL = 'https://SDWS02.sirsidynix.net/unthsc_ilsws/rest/standard/lookupTitleInfo?';
+
+ const WSURL = 'https://test.epfl.net:8443/symws/rest/standard/lookupTitleInfo?';
+
+//const WSURL ='https://pac.epfl.net:8443/symws/rest/standard/lookupTitleInfo?';
+
+
+  const CLIENTID = 'clientID=SymWSTestClient';
+
+const RECORDWITHINFO = '&titleID=1846280';
+
+//const RECORDWITHINFO = '&titleID=1874084';
+
+
+const OPENHOUR = [13,10,10,10,10,10,10];
+const CLOSEHOUR = [17,19,19,19,19,17,17];
+
+
+// Setup arrays for checked out status, unavailable status, and ignore status
+// Everything else will show as available
+  var checkedOut = ["CHECKEDOUT"];
+  var unavailable = ["MISSING","REPAIR","LOST-CLAIM","LOST-ASSUM"];
+  var ignore = ["DISCARD-Can't circ","LOST-ASSUM-Can't Circ"];
+
+// For date display, options are a weekday, a long date, the hour and minute
+  const DATEOPTIONS = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+// Use this date options when debugging so seconds are shown
+//  const DATEOPTIONS = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' };
+
+// Default time interval is 15 seconds (15 * 1000)
+  const DEFINTERVAL = 15 * 1000;
+
+// Class definition for item boxes
+  const ITEMCLASS = "w3-round-large w3-light-grey w3-border w3-border-black";
+// Initial HTML for item boxes
+  const ITEMHTML = '<img src="loading.gif" title="Loading" alt="Loading" width="100" height="100" />';
+// Style for item boxes
+  const ITEMSTYLE = "padding: 2px; margin: 0 0 1px 0;";
+// Class definition for the announcements box
+  const ANNOUNCECLASS = "w3-container w3-padding w3-round-large w3-light-grey w3-border w3-border-black w3-center w3-xxlarge";
+// Style for announcement block
+  const ANNOUNCESTYLE = "margin: 2px 0 2px 0;";
+
+// Setup array to hold catkeys for display and the variable to use to send the catkeys
+// Initialized here to make them global variables
+  var keys = [];
+  var keytxt = '';
+
+// Start the number of announcements at 0 and number of items at 0
+  var numannounce = 0;
+  var numitems = 0;
+  var numlines = 0;
+  //var numlines =0;
+  
+
+// Refresh page every interval -- initialize to default interval
+  var timeInterval = DEFINTERVAL;
+
+// Add the divs for the columns based on numcols variable
+  for (i=0; i<NUMCOLS; i++) {
+    var newDiv = document.createElement('div');
+	newDiv.id = 'col_' + i;
+    newDiv.className = COLUMNCLASS;
+    newDiv.innerHTML = '';
+    document.getElementById('cols').appendChild(newDiv);
+  }
+
+// First time, almost immediate refresh; proper interval gets set at end of function
+  var loopInterval = setInterval("getPage();", 100);
+
+// ***** THE END *****
+
+
+// ** Functions are next
+
+function getPage(){
+
+// Read catalog using Web services to get default catkey (see constants above);
+// record is shadowed; include MARC all MARC info
+// search in Workflows: general keyword search with number{ckey} as search term (see above)
+  $.getJSON(WSURL + CLIENTID + RECORDWITHINFO + '&includeShadowed=BOTH&marcEntryID=505,518&json=true&callback=?', function(display){ 
+// Info we need is under TitleInfo -> BibliographicInfo -> MarcEntryInfo
+// entryID 505 has the catkeys of the items we want to display separated by commas
+// entryID 518 has announcements (one per line)
+
+// Init number of 518 lines read
+    numlines = 0;
+
+// Check each line of the MARC record retrieved for the 505 (should only be one) and 518s
+//    bibinfo=display.TitleInfo[0].BibliographicInfo.MarcEntryInfo;
+//    $.each(bibinfo,function(index,lbl){
+    $.each(display.TitleInfo[0].BibliographicInfo.MarcEntryInfo,function(index,lbl){
+
+// We only care about the 505s and 518s
+      if (this.entryID == "505") { do505(this.text); }
+      if (this.entryID == "518") { do518(this.text); }
+
+    });
+
+// Now destroy any leftover divs (if number of announcements drops down)
+    for (i=numlines+1; i<numannounce+1; i++) {
+
+      var el = document.getElementById('ann_'+i);
+      el.parentNode.removeChild( el );
+
+    }
+
+// Set number of announcement lines
+    numannounce = numlines;
+
+// If any, send catkeys to function
+    if (keytxt != '') { showSummary(keytxt); }
+
+// Put current date and time into header; see CONST section for description of options
+    var date = new Date();
+    var today = date.toLocaleDateString('en-US', DATEOPTIONS);
+    document.getElementById('todaysDate').innerHTML = today;
+
+// Check time to see if we are open and adjust interval accordingly
+    timeInterval = checkOpenOrClosed();
+
+// Now, reset the interval between refresh calls
+    clearInterval(loopInterval);
+    loopInterval = setInterval("getPage(3);", timeInterval);
+
+  });
+}
+
+function do505(text) {
+
+// Split text from 505 into the individual catkeys (and remove any that are 0)
+  tmpkeys = text.split(",");
+  keys = tmpkeys.filter(function(tmp2) { return tmp2 != '0'; });
+  numkeys = keys.length;
+  keytxt = '';
+
+// Loop that many times adding the div (if needed); adjust the id for each one
+  for (i=0; i<numkeys; i++) {
+
+// On each, figure out which column(x) and row(y) it should on
+    var x = i % NUMCOLS;
+    var y = parseInt(i / NUMCOLS) + 1;
+
+// Add the catkey to the string for the Web services call
+    keytxt += '&titleID=' + keys[i];
+
+// If this div does not yet exist, create the new div for the title/item to display
+    if (numitems<(i+1)) {
+      var newDiv = document.createElement('div');
+      newDiv.id = 'col_' + x + y;
+      newDiv.className = ITEMCLASS;
+      newDiv.innerHTML = ITEMHTML;
+      newDiv.style = ITEMSTYLE;
+      document.getElementById('col_'+x).appendChild(newDiv);
+      numitems = i+1;
+    }
+
+  }
+
+// Now destroy any leftover divs (if number of items drops down)
+  for (i=numkeys; i<numitems; i++) {
+
+// On each, figure out which column(x) and row(y) it is on
+    var x = i % NUMCOLS;
+    var y = parseInt(i / NUMCOLS) + 1;
+
+    var el = document.getElementById('col_'+x+y);
+    el.parentNode.removeChild(el);
+
+  }
+
+// Set number of items
+  numitems = numkeys;
+
+}
+
+function do518(text) {
+
+// Increment number of announcement lines and setup the id for that box
+  numlines++;
+  newDivId = 'ann_' + numlines;
+
+// If needed, create the new div for the announcement to display
+  if (numannounce < numlines) {
+    var newDiv = document.createElement('div');
+    newDiv.className = ANNOUNCECLASS;
+    newDiv.id = newDivId;
+    newDiv.style = ANNOUNCESTYLE;
+    document.getElementById('announce').appendChild(newDiv);
+    numannounce = numlines;
+  }
+
+// Put the announcement in its box
+  document.getElementById(newDivId).innerHTML = "<b>" + text + "</b>";
+
+}
+
+// This function displays the items from the list of catkeys into the columns/rows
+function showSummary(catKeys){
+
+// Send a Web services request for the catkeys specified; return the items
+  $.getJSON(WSURL + CLIENTID + catKeys +'&includeItemInfo=true&includeShadowed=BOTH&includeOPACInfo=true&json=true&callback=?',function(tr){ 
+
+// Go through each title record returned  
+  $.each(tr.TitleInfo,function(ckidx,titleRec) {
+
+// Initialize the output for each box that contains the items and their availability
+    var htmlItemOutput='';
+
+// Go through each call number to get each item
+    $.each(titleRec.CallInfo,function(entryIndex,entry){
+
+// If the call number is OFFICE, then ignore these items -- lets you hide some things
+      if (this.callNumber == 'OFFICE') { return; }
+
+// Initialize the count of available items and total items
+      var itmCnt = 0;
+      var itmTot = 0;
+
+// Get earliest due date for items that none are available
+      var nextavail = new Date(2019,12,31);
+
+// Go through each item under each call number
+      $.each(titleRec.CallInfo[entryIndex].ItemInfo,function(itemIndex,itm){
+
+// Based on the current location, do different things
+// If it is checked out, get due date (for earliest available) or OVERDUE
+        if (checkedOut.indexOf(this.currentLocationID) > -1) {
+
+// Get the due date; if lower than the lowest due date so far, set it
+          tmpDate = new Date(this.dueDate);
+          if (tmpDate < nextavail) { nextavail = tmpDate; }
+          itmTot++;
+
+// If unavailable (missing, etc.), just inc number of items
+        } else if (unavailable.indexOf(this.currentLocationID) > -1) {
+
+          itmTot++;
+
+		} else if (ignore.indexOf(this.currentLocationID) > -1) {
+
+// If ignoring, do nothing
+
+		} else {
+
+// If not caught by other conditions, then the item is (likely) available
+// Inc number of items, and number available
+          itmTot++;
+          itmCnt++;
+
+		}
+
+      });
+
+// Determine language for display
+      notTxt = '';
+      prepPhrase = '';
+
+// If no items are available, set color to red otherwise set it to green
+      classColor = 'w3-green';
+      if (itmCnt == 0) {
+        notTxt = 'not';
+        classColor = 'w3-blue';
+      }
+
+// If one item total, then set display text; 'not' case is already taken care of
+      if (itmTot == 1) { subj = 'The item is '; }
+      else {
+        notTxt = '';
+        subj = itmCnt;
+		if (itmCnt == 0) { subj = 'None '; }
+		if (itmCnt == itmTot) { subj = 'All '; }
+        prepPhrase = ' of the ' + itmTot + ' items are ';
+	  }
+
+// Set the message to display
+      dispMsg = subj + prepPhrase + notTxt + ' available.';
+
+// Set the message for the next available item
+      nextMsg = '';
+
+      if (itmCnt == 0) {
+
+        if (itmTot == 1) { nextMsg = ' The item is '; }
+		else { nextMsg = ' The next available is '; }
+
+        curDate = new Date();
+		curDate.setHours(0,0,0,0);
+		nextavail.setHours(0,0,0,0);
+
+		if (nextavail.getTime() < curDate.getTime()) { nextMsg += 'overdue.'; }
+		else {
+		  nextMsg += 'due ';
+          if (nextavail.getTime() === curDate.getTime()) { nextMsg += 'today.'; }
+		  else { nextMsg += nextavail.toDateString(); }
+        }
+
+      }
+
+// Grab the call number as the item description (for laptops, the call number is the model)
+      dispTxt = this.callNumber + ": ";
+// For no call number or if call number begins with XX(, set the item description to be blank
+      if (dispTxt == 'NOCALL: ') { dispTxt = ''; }
+      if (dispTxt.substr(0,3) == 'XX(') { dispTxt = ''; }
+
+// Add the item description and status to the html that will be placed in the box for this title
+      htmlItemOutput += '<div class="w3-container w3-padding-small w3-round-large w3-large w3-border w3-border-light-grey ' + classColor + '">' + dispTxt;
+      htmlItemOutput += dispMsg + nextMsg + '</div>';
+
+    });
+
+// Setup the header for the box for the title
+    htmlHeaderOutput='<div style="padding: 3px;"><span class="w3-tooltip w3-xlarge"><b>'+titleRec.title+' </b><span class="w3-text w3-tag w3-round w3-green w3-small">(Catkey: ' + titleRec.titleID + ')</span></span></div>';
+
+// Add the details for each item created in the function above
+    htmlFinalOutput= htmlHeaderOutput + htmlItemOutput;
+
+// Get the column and row
+    var x = ckidx % NUMCOLS;
+    var y = parseInt(ckidx / NUMCOLS) + 1;
+
+// For the id in the form col_nn, where first n is column and second n is row, store the html
+    $('#col_'+x+y).html(htmlFinalOutput);		
+
+   });
+
+  });
+}
+
+function checkOpenOrClosed() {
+
+// Get current date/time and day of week as index for open/close times
+  var thisDate = new Date();
+  var dow = thisDate.getDay();
+
+// Day to check against is current (unless changed below)
+  var checkDate = new Date();
+
+// If current time is less than 15 minutes after midnight, drop back to day before
+  var minutesOfDay = (thisDate.getHours() * 60) + thisDate.getMinutes();
+
+  if (minutesOfDay <= 15) {
+
+    dow = dow -1;
+	if (dow < 0) {dow = 6;}
+
+// Day to check against is previous day
+    checkDate.setDate(checkDate.getDate() - 1);
+
+  }
+
+// Get opening (-15 minutes) and closing (+15 minutes) times and compare with current time
+  var openTime = new Date(checkDate);
+  openTime.setHours(OPENHOUR[dow],-15,0,0);
+  var closeTime = new Date(checkDate);
+  closeTime.setHours(CLOSEHOUR[dow],15,0,0);
+
+// If current time is within open/close hours, then use default interval for refresh
+  if ((thisDate >= openTime) && (thisDate <= closeTime)) {
+
+    timeInterval = DEFINTERVAL;
+
+  } else {
+
+// Compute number of milliseconds from current time to next day opening
+// If current time is past closing, then change day of week and check date to next day
+// Dow being adjusted above should not affect this
+
+    var nextdow = dow;
+    if (thisDate > closeTime) {
+
+      nextdow++;
+      if (nextdow > 6) { nextdow = 0; }
+
+      checkDate.setDate(checkDate.getDate() + 1);
+
+	}
+
+// Set the opening hour
+    checkDate.setHours(OPENHOUR[nextdow],-15,0,0);
+ 
+// Time to pause will be difference between current time and next open time (checkDate)
+    timeInterval = checkDate.getTime() - thisDate.getTime();
+
+// Blank out time in header
+    tmp = document.getElementById('todaysDate').innerHTML;
+    document.getElementById('todaysDate').innerHTML = '';
+
+  }
+
+  return timeInterval;
+
+}
+
+</script>
