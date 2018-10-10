@@ -1,0 +1,26 @@
+//Resize dialog window
+function resizeDialog() {
+    if (jQuery('.detailPanel').length > 0)
+    {
+        jQuery('.detailPanel').dialog("option", "width", jQuery(window).width() * 0.8);
+        jQuery('.detailPanel').dialog("option", "height", jQuery(window).height() * 0.8);
+
+        jQuery('.nextArrowRight').css('left', '103%');
+        jQuery('.nextArrowLeft').css('left', '-7%');
+
+        jQuery('.detailPanel').dialog("option", "position", [Math.floor(jQuery(window).width() / 10), Math.floor(jQuery(window).height() / 10)]);
+        if (navigator.userAgent.match(/MSIE/))
+            jQuery('.detailPanel').parent().css('left', Math.floor(jQuery(window).width() / 10) + 'px');
+    }
+
+}
+
+jQuery(function() {
+    jQuery('body').live( "dialogopen", function( event, ui ) {
+        resizeDialog();
+    } );
+});
+
+jQuery( window ).resize(function() {
+    resizeDialog();
+});
