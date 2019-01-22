@@ -28,8 +28,7 @@
 <!-- This div is just to give some separation -->
   <div class="w3-container w3-tiny">&nbsp;</div>
 
-<!-- Items displayed are read from catalog record 72648 505 field -->
-<!-- Search for title: 'circulation signage' as Keyword, or general: '72648{ckey}' as Keyword --> 
+
 
   <div class="w3-cell-row" id="cols">
 <!-- These columns and their inner divs will be created below
@@ -84,7 +83,7 @@ const CLOSEHOUR = [17,19,19,19,19,17,17];
 // Everything else will show as available
   var checkedOut = ["CHECKEDOUT"];
   var unavailable = ["MISSING","REPAIR","LOST-CLAIM","LOST-ASSUM"];
-  var ignore = ["DISCARD-Can't circ","LOST-ASSUM-Can't Circ"];
+  var ignore = ["DISCARD"];
 
 // For date display, options are a weekday, a long date, the hour and minute
   const DATEOPTIONS = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' };
@@ -365,7 +364,7 @@ function showSummary(catKeys){
       dispTxt = this.callNumber + ": ";
 // For no call number or if call number begins with XX(, set the item description to be blank
       if (dispTxt == 'NOCALL: ') { dispTxt = ''; }
-      if (dispTxt.substr(0,3) == 'XX(') { dispTxt = ''; }
+      if (dispTxt.substr(0,1) == 'J(') { dispTxt = ''; }
 
 // Add the item description and status to the html that will be placed in the box for this title
       htmlItemOutput += '<div class="w3-container w3-padding-small w3-round-large w3-large w3-border w3-border-light-grey ' + classColor + '">' + dispTxt;
